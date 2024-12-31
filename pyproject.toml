@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "django-meili"
-version = "0.1.0"  # You'll want to set your desired version here
+version = "0.1.1"  # You'll want to set your desired version here
 description = ""  # Add your description here
 authors = ["Ian Kollipara <ian.kollipara@cune.edu>"]
 readme = "README.md"

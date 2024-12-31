@@ -6,7 +6,8 @@ This module contains the QuerySet classes for the Django MeiliSearch app.
 """
 
 # Imports
-from typing import TYPE_CHECKING, Literal, NamedTuple, Self, Type, Dict, Any
+from typing import TYPE_CHECKING, Literal, NamedTuple, Self, Type, Dict, Any, Optional, TypeVar, Generic
+from django.db.models import QuerySet
 
 from ._client import client
 
@@ -244,14 +245,20 @@ class IndexQuerySet:
                 options["facets"] = self.model._meilisearch["filterable_fields"]
         return options
 
-    def search(self, q: str = "", options: Dict[str, Any] = None) -> "QuerySet":
+    def search(self, q: str = "", options: Dict[str, Any] = None) -> "MeiliSearchResults":
         """Searches the index for the given query.
 
-        This method searches the index for the given query and returns the results as an actual Django QuerySet.
+        This method searches the index for the given query and returns the results as a MeiliSearchResults,
+        which includes both the Django queryset results and Meilisearch metadata like faceting.
 
         For example:
         ```python
-        Model.meilisearch.search("Hello World") # Returns a Django QuerySet
+        results = Model.meilisearch.search("Hello World", options={"facets": ["category"]})
+        # Access the queryset results
+        for obj in results:
+            print(obj)
+        # Access faceting data
+        print(results.facet_distribution)
         ```
         """
         options = self._get_search_options(options)
@@ -269,6 +276,76 @@ class IndexQuerySet:
             },
         )
         id_field = getattr(self.model.MeiliMeta, "primary_key", "id")
-        return self.model.objects.filter(
+        base_queryset = self.model.objects.filter(
             pk__in=[hit[id_field] for hit in results.get("hits", [])]
         )
+
+        return MeiliSearchResults(base_queryset, results)
+
+
+class MeiliSearchResults:
+    """
+    A lightweight wrapper that adds Meilisearch metadata to a Django QuerySet.
+    Delegates all QuerySet operations to the underlying queryset while providing
+    access to Meilisearch-specific data.
+    """
+    def __init__(self, queryset: QuerySet["IndexMixin"], meili_results: Dict[str, Any]):
+        self.queryset = queryset
+        # Meilisearch specific metadata
+        self.facet_distribution = meili_results.get('facetDistribution')
+        self.total_hits = meili_results.get('estimatedTotalHits')
+        self.processing_time_ms = meili_results.get('processingTimeMs')
+        self.query = meili_results.get('query')
+        self.hits = meili_results.get('hits', [])
+
+    def __getattr__(self, name):
+        """
+        Delegate all other attributes to the underlying queryset
+        """
+        return getattr(self.queryset, name)
+
+    # iterator method
+    def __iter__(self):
+        return self.queryset.__iter__()
+
+    def __len__(self):
+        return len(self.queryset)
+
+    def __getitem__(self, index):
+        return self.queryset.__getitem__(index)
+
+    def __contains__(self, item):
+        return self.queryset.__contains__(item)
+
+    def __reversed__(self):
+        return self.queryset.__reversed__()
+
+    def __or__(self, other: QuerySet) -> QuerySet:
+        return self.queryset.__or__(other)
+
+    def __and__(self, other: QuerySet) -> QuerySet:
+        return self.queryset.__and__(other)
+
+    def __repr__(self):
+        return repr(self.queryset).replace("QuerySet", "MeiliSearchResults")
+
+    def __str__(self):
+        return str(self.queryset).replace("QuerySet", "MeiliSearchResults")
+
+    def __eq__(self, other):
+        return self.queryset == other.queryset
+
+    def __ne__(self, other):
+        return self.queryset != other.queryset
+
+    def __lt__(self, other):
+        return self.queryset < other.queryset
+
+    def __le__(self, other):
+        return self.queryset <= other.queryset
+
+    def __gt__(self, other):
+        return self.queryset > other.queryset
+
+    def __ge__(self, other):
+        return self.queryset >= other.queryset
