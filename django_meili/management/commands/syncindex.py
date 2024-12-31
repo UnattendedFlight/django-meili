@@ -11,6 +11,7 @@ from django.core.management.base import BaseCommand
 from django.apps import apps
 from django_meili._client import client as _client
 from django_meili.models import IndexMixin
+from django_meili.utils import MeiliJSONEncoder
 
 DEFAULT_BATCH_SIZE = settings.MEILISEARCH.get("DEFAULT_BATCH_SIZE", 1000)
 
@@ -55,7 +56,8 @@ class Command(BaseCommand):
 
         for qs in batch_qs(Model.objects.all(), options["batch_size"]):
             task = _client.get_index(Model.__name__).add_documents(
-                [self._serialize(m) for m in qs if m.meili_filter()]
+                [self._serialize(m) for m in qs if m.meili_filter()],
+                serializer=MeiliJSONEncoder
             )
         finished = _client.wait_for_task(task.task_uid)
         if finished.status == "failed":
