@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, Self, Type, Dict, Any, Op
 from django.db.models import QuerySet
 
 from ._client import client
+from .query import Q
 
 if TYPE_CHECKING:
     from .models import IndexMixin
@@ -655,6 +656,43 @@ class IndexQuerySet:
         queryset = self
         if kwargs:
             queryset = self.with_search_options(**kwargs)
+
+        results = self.index.search(q, queryset._prepare_search_options())
+
+        id_field = getattr(self.model.MeiliMeta, "primary_key", "id")
+        base_queryset = self.model.objects.filter(
+            pk__in=[hit[id_field] for hit in results.get("hits", [])]
+        )
+
+        return MeiliSearchResults(base_queryset, results)
+
+    def search_q(self, q: str = "", q_obj: Q = None, **kwargs) -> "MeiliSearchResults[T]":
+        """
+        Conducts a search query using a MeiliSearch index and returns the results.
+
+        This method performs an advanced search by utilizing the provided query, query
+        object, and additional keyword arguments. If keyword arguments are present,
+        they are used to refine the search options through the `with_search_options`
+        method. When a query object is provided, it converts the object to a query string
+        and applies it for filtering. The results are then combined with the base
+        queryset filtered by primary keys identified in the search hits.
+
+        Args:
+            q (str): The search query string to execute against the MeiliSearch index.
+                Defaults to an empty string.
+            q_obj (Q): The query object to use for filtering the search results.
+            **kwargs: Additional search options or filters to customize the search behavior.
+                These options will override or update the existing search configuration.
+
+        Returns:
+            MeiliSearchResults[T]: An instance containing the filtered database queryset and the raw results
+            retrieved from the MeiliSearch index.
+        """
+        queryset = self
+        if kwargs:
+            queryset = self.with_search_options(**kwargs)
+        if q_obj:
+            queryset = self.with_search_options(filter=q_obj.to_query_string())
 
         results = self.index.search(q, queryset._prepare_search_options())
 
