@@ -6,7 +6,7 @@ This module contains the QuerySet classes for the Django MeiliSearch app.
 """
 
 # Imports
-from typing import TYPE_CHECKING, Literal, NamedTuple, Self, Type
+from typing import TYPE_CHECKING, Literal, NamedTuple, Self, Type, Dict, Any
 
 from ._client import client
 
@@ -235,7 +235,16 @@ class IndexQuerySet:
         self.__attributes_to_search_on.append(*attributes)
         return self
 
-    def search(self, q: str = ""):
+    def _get_search_options(self, options: Dict[str, Any] = None) -> Dict[str, Any]:
+        if options is None:
+            options = {}
+        if "facets" in options:
+            facets = options.get("facets", [])
+            if len(facets) == 1 and facets[0] == "*":
+                options["facets"] = self.model._meilisearch["filterable_fields"]
+        return options
+
+    def search(self, q: str = "", options: Dict[str, Any] = None) -> "QuerySet":
         """Searches the index for the given query.
 
         This method searches the index for the given query and returns the results as an actual Django QuerySet.
@@ -245,6 +254,7 @@ class IndexQuerySet:
         Model.meilisearch.search("Hello World") # Returns a Django QuerySet
         ```
         """
+        options = self._get_search_options(options)
 
         results = self.index.search(
             q,
@@ -255,6 +265,7 @@ class IndexQuerySet:
                 "sort": self.__sort,
                 "matchingStrategy": self.__matching_strategy,
                 "attributesToSearchOn": self.__attributes_to_search_on,
+                **options,
             },
         )
         id_field = getattr(self.model.MeiliMeta, "primary_key", "id")
