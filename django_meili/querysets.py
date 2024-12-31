@@ -6,7 +6,7 @@ This module contains the QuerySet classes for the Django MeiliSearch app.
 """
 
 # Imports
-from typing import TYPE_CHECKING, Literal, NamedTuple, Self, Type, Dict, Any, Optional, TypeVar, Generic
+from typing import TYPE_CHECKING, Literal, NamedTuple, Self, Type, Dict, Any, Optional, TypeVar, Generic, List
 from django.db.models import QuerySet
 
 from ._client import client
@@ -240,12 +240,16 @@ class IndexQuerySet:
         if options is None:
             options = {}
         if "facets" in options:
-            facets = options.get("facets", [])
+            facets = options.pop("facets", [])
+            facets_exclude = options.pop("facets_exclude", [])
             if len(facets) == 1 and facets[0] == "*":
-                options["facets"] = self.model._meilisearch["filterable_fields"]
+                if len(facets_exclude) > 0:
+                    options["facets"] = [f for f in self.model._meilisearch["filterable_fields"] if f not in facets_exclude]
+                else:
+                    options["facets"] = self.model._meilisearch["filterable_fields"]
         return options
 
-    def search(self, q: str = "", options: Dict[str, Any] = None) -> "MeiliSearchResults":
+    def search(self, q: str = "", facets: List[str] = None, facets_exclude: List[str] = None, **kwargs) -> "MeiliSearchResults":
         """Searches the index for the given query.
 
         This method searches the index for the given query and returns the results as a MeiliSearchResults,
@@ -261,7 +265,14 @@ class IndexQuerySet:
         print(results.facet_distribution)
         ```
         """
-        options = self._get_search_options(options)
+        opt = {
+            **kwargs,
+        }
+        if facets is not None and isinstance(facets, list):
+            opt["facets"] = facets
+        if facets_exclude is not None and isinstance(facets_exclude, list):
+            opt["facets_exclude"] = facets_exclude
+        options = self._get_search_options(opt)
 
         results = self.index.search(
             q,
