@@ -1,23 +1,25 @@
-[build-system]
-requires = ["flit_core>=3.2,<4"]
-build-backend = "flit_core.buildapi"
-
-[project]
+[tool.poetry]
 name = "django-meili"
-authors = [{ name = "Ian Kollipara", email = "ian.kollipara@cune.edu" }]
-dynamic = ["version", "description"]
+version = "0.1.0"  # You'll want to set your desired version here
+description = ""  # Add your description here
+authors = ["Ian Kollipara <ian.kollipara@cune.edu>"]
 readme = "README.md"
-requires-python = ">=3.11"
+packages = [{include = "django_meili"}]
+repository = "https://github.com/ikollipara/django-meili"
+homepage = "https://github.com/ikollipara/django-meili"
+documentation = "https://github.com/ikollipara/django-meili"
+license = "MIT"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["django", "meilisearch"]
 
-[project.optional-dependencies]
-djp = ["djp"]
+[tool.poetry.dependencies]
+python = "^3.11"
+django = "*"
+meilisearch = "*"
 
-[project.urls]
-"Homepage" = "https://github.com/ikollipara/django-meili"
-"Bug Tracker" = "https://github.com/ikollipara/django-meili/issues"
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Iterable, TypedDict
 from django.apps import AppConfig
 from meilisearch.models.task import TaskInfo
 
+from django_meili.utils import MeiliJSONEncoder
+
 if TYPE_CHECKING:
     from django_meili.models import IndexMixin
 
@@ -61,7 +63,8 @@ class DjangoMeiliConfig(AppConfig):
                         serialized
                         | {"id": pk, "pk": model.pk}
                         | ({"_geo": geo} if geo else {})
-                    ]
+                    ],
+                    serializer=MeiliJSONEncoder
                 )
                 if settings.DEBUG:
                     finished = _client.wait_for_task(task.task_uid)
